@@ -54,4 +54,4 @@ Thumbs.db
 .pytest_cache/
 
 # ML models (optional - comment out if you want to commit them)
-# *.joblib
+*.joblib
