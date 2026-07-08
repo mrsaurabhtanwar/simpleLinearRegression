@@ -1,4 +1,5 @@
 """
+0. import the libraries
 1. Initialize FastAPI and setup logging
 2. Load the predication artifacts
 3. Define the expected incoming data structure
