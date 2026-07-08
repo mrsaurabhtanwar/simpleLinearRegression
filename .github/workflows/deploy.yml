@@ -1,4 +1,4 @@
-name: "CI/CD pipeline for SimpleLR"
+name: CI/CD pipeline for the simpleLinearRegression
 
 on:
   push:
@@ -20,19 +20,15 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: install dependencies
+      - name: Install Dependencies
         run: |
-         python -m pip install --upgrade pip
-         pip install -r requirements.txt
-         pip install pytest
-
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+        
       - name: Run tests
         run: |
           pytest tests/test_api.py
-          python -c "import fastapi; import joblib; import mysql.connector; print('All imports successfully!')"
-
+          python -c "import fastapi; import joblib; import scikit-learn; print('All import successfully!')"
 
   # build:
-  #   runs-on: ubuntu-latest
-  # deploy:
-  #   runs-on: ubuntu-latest
+  # delpoy:
