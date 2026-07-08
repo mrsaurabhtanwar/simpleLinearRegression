@@ -28,7 +28,7 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest test_api.py
+          pytest tests/test_api.py
           python -c "import fastapi; import joblib; import mysql.connector; print('All imports successfully!')"
 
 
