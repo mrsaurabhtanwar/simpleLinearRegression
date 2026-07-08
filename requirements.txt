@@ -2,4 +2,6 @@ fastapi
 uvicorn
 joblib
 scikit-learn==1.9.0
+pytest
 mysql-connector-python
+httpx2
