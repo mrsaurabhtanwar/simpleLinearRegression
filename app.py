@@ -4,7 +4,7 @@
 2. Load the predication artifacts
 3. Define the expected incoming data structure
 4. Create the prediction endpoint
-5. Integrate MySQL into API
+5. Integrate SQL into API using the SQLAlchemy
 
 """
 
@@ -13,12 +13,14 @@ import joblib
 import numpy as np
 import time
 import logging
-# import mysql.connector
 from pathlib import Path
+from datetime import datetime
 
-from fastapi import FastAPI, HTTPException
+from sqlalchemy import create_engine, Column, Float, Integer, DateTime, String
+from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import sessionmaker, Session
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
-
 
 app = FastAPI(title="Height Predication Service")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s")
@@ -33,41 +35,35 @@ try:
 except Exception as e:
     logging.error(f"Failed to load the model artificates : {e}")
 
-
 class InferenceInput(BaseModel):
     weight_lbs: float
 
 
-# def save_predication_to_db(weight: float, predication: float, latency: float):
-    # try:
-    #     # connect to XAMPP mysql 
-    #     connection = mysql.connector.connect(
-    #         host="host.docker.internal",
-    #         user="root",
-    #         password="",
-    #         database="mlops_db"
-    #     )
-    #     cursor = connection.cursor()
-    #     # sql raw query
-    #     sql_query = """
-    #         INSERT INTO predication_logs (weight_lbs, predicated_height_inches, latency_seconds) VALUES (%s, %s, %s)
-    #     """
-    #     # Execute the query safely using placeholders to prevent SQL injection
-    #     cursor.execute(sql_query, (weight, predication, latency))
+engine = create_engine("sqlite:///weight_height_prediction.db", connect_args={"check_same_thread":False})
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+Base = declarative_base()
 
-    #     # commit the transcation to save it permanently
-    #     connection.commit()
+class Height(Base):
+    __tablename__ = "weight_height_prediction"
+    id = Column(Integer, primary_key=True)
+    weight = Column(Float, nullable=False)
+    height = Column(Float, nullable=False)
+    date_time = Column(DateTime, nullable=False)
+    latency = Column(Float, nullable=False)
+    error = Column(String, default=None)
+    
+Base.metadata.create_all(engine)
 
-    #     cursor.close()
-    #     connection.close()
-    #     logging.info("Successfully logged predication to MySQL database.")
-
-    # except Exception as e:
-    #     logging.error(f"Database logging error : {e}")
-
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 @app.post("/predict")
-def predict_height(data: InferenceInput):
+def predict_height(data: InferenceInput, db: Session = Depends(get_db)):
+    current_dt = datetime.now()
     start_time = time.time()
 
     if data.weight_lbs <= 0:
@@ -83,21 +79,37 @@ def predict_height(data: InferenceInput):
 
         # Calculate latency (Crucial MLOps metric!)
         latency = time.time() - start_time
-
-        # Save the workflow execution to your database
-        # save_predication_to_db(
-        #     weight=data.weight_lbs,
-        #     predication=round(predict_height, 2),
-        #     latency=round(latency, 4)
-        # )
+        db.add(
+            Height(
+                weight=data.weight_lbs, 
+                height=predict_height, 
+                date_time=current_dt, 
+                latency=latency,
+                error=None
+            ) 
+        )
+        db.commit()
 
         return {
             "Predicted_height_inches": round(predict_height, 2),
             "status": "success",
             "latency_seconds": round(latency, 4)
         }
+    
     except Exception as e:
-        logging.error(f"Interence error : {e}")
+        logging.error(f"Inference error : {e}")
+        db.rollback()
+        db.add(
+            Height(
+                weight=data.weight_lbs, 
+                height=0, 
+                date_time=current_dt,
+                latency=0, 
+                error=str(e)
+
+            )
+        )
+        db.commit()
         raise HTTPException(status_code=500, detail="Internal server error during predication.")
 
 
